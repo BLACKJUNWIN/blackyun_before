@@ -1,0 +1,8 @@
+@import "normalize.css";
+*{
+  padding:0;
+  margin:0;
+}
+html,body{
+  min-width: 800px;
+}
