@@ -52,3 +52,18 @@ export function net_uploadCancel(data){
         method:"get",
     })
 }
+
+export function net_categoryList(){
+    return request({
+        url:"/category/",
+        method:"get"
+    })
+}
+
+export function net_shareFile(data){
+    return request({
+        url:"/software/",
+        method:"post",
+        data
+    })
+}

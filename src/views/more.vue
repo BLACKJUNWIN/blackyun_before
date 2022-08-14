@@ -13,20 +13,21 @@
         <el-breadcrumb-item v-for="(item,index) in records" :key="index">{{ item }}</el-breadcrumb-item>
       </el-breadcrumb>
     </div>
-    <div style="display: flex;width: 100%;height: auto;flex-wrap: wrap;box-shadow: 0 0 8px rgba(128,128,128,0.8);background-color:#fafafa;border-radius: 1.5em;margin-top:20px;padding:50px 0">
+    <div
+        style="display: flex;width: 100%;height: auto;flex-wrap: wrap;box-shadow: 0 0 8px rgba(128,128,128,0.8);background-color:#fafafa;border-radius: 1.5em;margin-top:20px;padding:50px 0">
       <div class="file" @click="enterFile({name:'temp',level:'/',type:'pack'})" v-if="$route.query.path==='/'">
-        <img :src="getType('pack')" style="width:75%"/>
+        <img :src="getType('pack')" style="width:75%" alt="类型图片"/>
         <span class="fileTitle">temp</span>
       </div>
       <div v-for="(item,index) in currentPack" :key="index" style="" class="file"
            :title="clearType(item.name)+'.'+item.type"
            @contextmenu.prevent="currentFile=item;fileManage=true;" @click="enterFile(item)">
-        <img :src="getType(item.type)" style="width:75%"/>
+        <img :src="getType(item.type)" style="width:75%" alt="类型图片"/>
         <span class="fileTitle">{{ clearType(item.name) }}</span>
       </div>
       <div v-if="currentPack===null||currentPack.length<=0&&$route.query.path!=='/'"
            style="text-align: center;width: 100%">
-        <img src="@/assets/images/none.svg"/>
+        <img src="@/assets/images/none.svg" alt="啥也没有"/>
         <div style="font-weight: bold;font-size: 20px;color: #61b3ec"><span style="color: black">黑</span>盘里什么也没有</div>
       </div>
     </div>
@@ -61,6 +62,31 @@
           </div>
         </div>
       </div>
+      <el-dialog
+          v-model="fileManageInner"
+          width="30%"
+          title="软件分享"
+          append-to-body>
+          <el-form  label-width="80px">
+            <el-form-item label="软件名" style="font-weight: bold">
+              <el-input name='fileName' v-model="shareFile.name" placeholder="请输入软件名"></el-input>
+            </el-form-item>
+            <el-form-item label="分类名" style="font-weight: bold">
+              <el-select v-model="shareFile.categoryId">
+                <el-option
+                    v-for="item in category"
+                    :key="item.id"
+                    :label="item.category"
+                    :value="item.id"
+                />
+              </el-select>
+            </el-form-item>
+          </el-form>
+        <span slot="footer" class="dialog-footer" style="display: flex;justify-content: center;margin-top: 25px">
+        <el-button type="info" @click="fileManageInner = false">取 消</el-button>
+        <el-button type="warning" @click="fileManageInner=false;uploadShareFile()">分享</el-button>
+       </span>
+      </el-dialog>
       <span slot="footer" class="dialog-footer" style="display: flex;justify-content: center;margin-top: 25px">
         <el-button type="info" @click="fileManage = false">取 消</el-button>
         <el-button type="danger" @click="fileManage = false;deleteFile()">删除</el-button>
@@ -68,6 +94,7 @@
                    :disabled="!(currentFile.type==='txt'||currentFile.type==='jpg'||currentFile.type==='png'||currentFile.type==='xml')"
                    title="仅支持txt,jpg,png格式">预览</el-button>
         <el-button type="primary" @click="fileManage = false;downFile(currentFile)">下载</el-button>
+        <el-button type="warning" @click="fileManageInner=true;shareFile.name=clearType(currentFile.name);shareFile.fileId=currentFile.id">分享</el-button>
        </span>
     </el-dialog>
     <!--    文件操作弹窗-->
@@ -95,7 +122,7 @@ import {
   net_fileExist,
   net_uploadSliceFile,
   net_fileCombined,
-  net_uploadCancel,
+  net_uploadCancel, net_categoryList, net_shareFile,
 } from "@/net/file";
 import {useRoute, useRouter} from "vue-router";
 import {reactive, toRefs, watch} from "vue";
@@ -123,6 +150,7 @@ export default {
       currentPack: [],
       currentFile: {},
       fileManage: false,
+      fileManageInner: false,
       addMkdir: false,
       mkdirName: "",
       records: [],
@@ -135,8 +163,28 @@ export default {
       uploadList: [],
       uploadFileName: "",
       uploadFileRealName: "",
-      fileUploaded: 0
+      fileUploaded: 0,
+      category:[],
+      shareFile:{
+        name:"",
+        categoryId:"1534448966809767937",
+        fileId:0,
+      }
     })
+
+    //文件分享
+    let uploadShareFile=async ()=>{
+      let res=await net_shareFile(file.shareFile);
+      if(res.code==="200"){
+        let res={
+          code:"201",
+          message:"分享成功,等待管理员审核!"
+        }
+        store.commit("tip",res);
+      }else{
+        store.commit("tip",res);
+      }
+    }
 
     //进入对应文件夹
     let enterPack = async () => {
@@ -270,7 +318,7 @@ export default {
     }
     //文件解析完后开始上传
     let fileParse = async () => {
-      store.state.loading=true;
+      store.state.loading = true;
       //获取文件并创建传递data数组
       let fileData = document.querySelector('#upload').files[0];
       //获取buffer模式文件,并创建md5码
@@ -398,6 +446,7 @@ export default {
 
     return {
       ...toRefs(fileData),
+      ...toRefs(file),
       getType,
       enterPack,
       enterFile,
@@ -410,11 +459,13 @@ export default {
       fileParse,
       fileSlice,
       responseFiles,
-      clickUpload
+      clickUpload,
+      uploadShareFile
     }
   },
-  created() {
+  async created() {
     this.enterPack();
+    this.category=(await net_categoryList()).data;
   },
 }
 </script>
