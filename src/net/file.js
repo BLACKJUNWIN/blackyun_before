@@ -67,3 +67,11 @@ export function net_shareFile(data){
         data
     })
 }
+
+export function net_uploadImage(data){
+    return request({
+        url:"/fileUtils/",
+        method:"post",
+        data
+    })
+}

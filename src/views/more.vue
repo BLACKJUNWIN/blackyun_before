@@ -67,21 +67,33 @@
           width="30%"
           title="软件分享"
           append-to-body>
-          <el-form  label-width="80px">
-            <el-form-item label="软件名" style="font-weight: bold">
-              <el-input name='fileName' v-model="shareFile.name" placeholder="请输入软件名"></el-input>
-            </el-form-item>
-            <el-form-item label="分类名" style="font-weight: bold">
-              <el-select v-model="shareFile.categoryId">
-                <el-option
-                    v-for="item in category"
-                    :key="item.id"
-                    :label="item.category"
-                    :value="item.id"
-                />
-              </el-select>
-            </el-form-item>
-          </el-form>
+        <el-form label-width="80px">
+          <el-form-item label="软件名" style="font-weight: bold" required>
+            <el-input name='fileName' v-model="shareFile.name" placeholder="请输入软件名"></el-input>
+          </el-form-item>
+          <el-form-item label="分类名" style="font-weight: bold" required>
+            <el-select v-model="shareFile.categoryId">
+              <el-option
+                  v-for="item in category"
+                  :key="item.id"
+                  :label="item.category"
+                  :value="item.id"
+              />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="软件官网" style="font-weight: bold">
+            <el-input name='url' v-model="shareFile.url" placeholder="请输入官网网址"></el-input>
+          </el-form-item>
+          <el-form-item label="图标" style="font-weight: bold">
+            <el-button v-if="!shareFile.uploadIcon" type="primary" @click="clickUploadImage()" style="margin-right: 10px">上传
+            </el-button>
+            <div v-if="!shareFile.uploadIcon">图标大小不能大于500kb</div>
+            <input type="file" id="icon" style="display: none" @change="uploadImages()"/>
+            <div>
+              <img class="el-upload-list__item-thumbnail" :src="shareFile.uploadIcon" alt="" v-if="shareFile.uploadIcon" style="width:60%"/>
+            </div>
+          </el-form-item>
+        </el-form>
         <span slot="footer" class="dialog-footer" style="display: flex;justify-content: center;margin-top: 25px">
         <el-button type="info" @click="fileManageInner = false">取 消</el-button>
         <el-button type="warning" @click="fileManageInner=false;uploadShareFile()">分享</el-button>
@@ -94,7 +106,8 @@
                    :disabled="!(currentFile.type==='txt'||currentFile.type==='jpg'||currentFile.type==='png'||currentFile.type==='xml')"
                    title="仅支持txt,jpg,png格式">预览</el-button>
         <el-button type="primary" @click="fileManage = false;downFile(currentFile)">下载</el-button>
-        <el-button type="warning" @click="fileManageInner=true;shareFile.name=clearType(currentFile.name);shareFile.fileId=currentFile.id">分享</el-button>
+        <el-button type="warning"
+                   @click="fileManageInner=true;shareFile.name=clearType(currentFile.name);shareFile.fileId=currentFile.file_id;shareFile.uploadIcon=''">分享</el-button>
        </span>
     </el-dialog>
     <!--    文件操作弹窗-->
@@ -114,7 +127,7 @@
 </template>
 
 <script>
-import {Back} from "@element-plus/icons";
+import {Back, Delete, Plus, ZoomIn} from "@element-plus/icons";
 import {
   showPack,
   removeFilePath,
@@ -122,7 +135,7 @@ import {
   net_fileExist,
   net_uploadSliceFile,
   net_fileCombined,
-  net_uploadCancel, net_categoryList, net_shareFile,
+  net_uploadCancel, net_categoryList, net_shareFile, net_uploadImage,
 } from "@/net/file";
 import {useRoute, useRouter} from "vue-router";
 import {reactive, toRefs, watch} from "vue";
@@ -133,7 +146,10 @@ import SparkMD5 from "spark-md5";
 export default {
   name: "more",
   components: {
-    Back
+    Back,
+    Delete,
+    Plus,
+    ZoomIn
   },
   setup() {
     const route = useRoute();
@@ -144,7 +160,6 @@ export default {
         enterPack();
       }
     })
-
     //基础属性
     let fileData = reactive({
       currentPack: [],
@@ -164,25 +179,48 @@ export default {
       uploadFileName: "",
       uploadFileRealName: "",
       fileUploaded: 0,
-      category:[],
-      shareFile:{
-        name:"",
-        categoryId:"1534448966809767937",
-        fileId:0,
-      }
+      category: [],
+      shareFile: {
+        name: "",
+        categoryId: "1534448966809767937",
+        fileId: 0,
+        url: "",
+        uploadIcon: ""
+      },
     })
+    let clickUploadImage = () => {
+      document.querySelector("#icon").click();
+    }
+    //上传图片接口
+    let uploadImages = async () => {
+      let formData = new FormData();
+      let icon = document.querySelector("#icon").files[0];
+      if (icon.size > 1024 * 1024) {
+        let res = {
+          code: "500",
+          message: "图标大于500kb,请重新上传"
+        }
+        store.commit("tip", res);
+      } else {
+        formData.append("file", icon);
+        formData.append("category", "icon");
+        let res = (await net_uploadImage(formData));
+        file.shareFile.uploadIcon = res.data.path;
+      }
+      document.querySelector("#icon").value = "";
+    }
 
     //文件分享
-    let uploadShareFile=async ()=>{
-      let res=await net_shareFile(file.shareFile);
-      if(res.code==="200"){
-        let res={
-          code:"201",
-          message:"分享成功,等待管理员审核!"
+    let uploadShareFile = async () => {
+      let res = await net_shareFile(file.shareFile);
+      if (res.code === "200") {
+        let res = {
+          code: "201",
+          message: "分享成功,等待管理员审核!"
         }
-        store.commit("tip",res);
-      }else{
-        store.commit("tip",res);
+        store.commit("tip", res);
+      } else {
+        store.commit("tip", res);
       }
     }
 
@@ -460,12 +498,14 @@ export default {
       fileSlice,
       responseFiles,
       clickUpload,
-      uploadShareFile
+      uploadShareFile,
+      uploadImages,
+      clickUploadImage
     }
   },
   async created() {
     this.enterPack();
-    this.category=(await net_categoryList()).data;
+    this.category = (await net_categoryList()).data;
   },
 }
 </script>
